@@ -3,7 +3,7 @@
 A real-time hand gesture classifier for Rock, Paper, and Scissors, built with Python, OpenCV, MediaPipe, and TensorFlow/Keras. It reads a webcam feed, labels your gesture live, and plays a round against a random computer move.
 
 | Rock | Paper | Scissors | No Hand
-|:---:|:---:|:---:|
+|:---:|:---:|:---:|:---:|
 | ![Rock example](assets/example1.png) | ![Paper example](assets/example4.png) | ![Scissors example](assets/example3.png) | ![No hand example](assets/example2.png) |
 
 This project was an end-to-end exercise in applied computer vision: collecting data, training a CNN, and running real-time inference. It is a working proof of concept. It works live on my own hand, but I have not measured its accuracy on unseen data (see Limitations), so I do not report an accuracy number.
