@@ -41,6 +41,20 @@ segment_options = ImageSegmenterOptions(
     output_confidence_masks=True
 )
 
+# --- TIMING SUMMARY ---
+def print_timing_summary(timings):
+    print("\n================ TIMING SUMMARY (ms) ================")
+    for name, values in timings.items():
+        if not values:
+            print(f"{name:<22}: no samples")
+            continue
+        arr = np.array(values) * 1000.0
+        print(f"{name:<22}: median {np.median(arr):7.1f} | mean {arr.mean():7.1f} | "
+              f"min {arr.min():7.1f} | max {arr.max():7.1f} | n={len(arr)}")
+
+# Timing samples (seconds), recorded only on processed frames (every Nth frame)
+timings = {"hand_detection": [], "segmentation": [], "model_prediction": [], "processed_frame_total": []}
+
 # --- LOAD THE TRAINED MODEL ---
 print("Loading model...")
 model = tf.keras.models.load_model(MODEL_PATH)
@@ -96,6 +110,8 @@ with HandLandmarker.create_from_options(hand_options) as landmarker, \
 
         # Flip the frame
         frame = cv2.flip(frame, 1)
+       
+        frame = cv2.resize(frame, (640, 480))
         frame_count += 1 # Increment frame counter
 
         # --- NEW: Determine if we process this frame ---
@@ -107,11 +123,17 @@ with HandLandmarker.create_from_options(hand_options) as landmarker, \
             current_predicted_label = "No Hand" # Default for this frame
             current_confidence = 0.0
             current_hand_cutout_display = np.zeros((150, 150, 3), dtype=np.uint8)
-
+            totalTime = time.time() # For performance measurement
+            t0 = time.time() # For performance measurement
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image_full = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+    
             detection_result = landmarker.detect(mp_image_full)
-
+            detection_time = time.time() - t0
+            timings["hand_detection"].append(detection_time)
+            print(f"Hand detection time: {detection_time:.4f} seconds")
+            t0 = time.time()
+            
             if detection_result.hand_landmarks:
                 try:
                     landmarks = detection_result.hand_landmarks[0]
@@ -123,6 +145,10 @@ with HandLandmarker.create_from_options(hand_options) as landmarker, \
                             cropped_rgb = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2RGB)
                             cropped_mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cropped_rgb)
                             segmentation_result = segmenter.segment(cropped_mp_image)
+                            segmentation_time = time.time() - t0
+                            timings["segmentation"].append(segmentation_time)
+                            print(f"Segmentation time: {segmentation_time:.4f} seconds")
+                            
 
                             if hasattr(segmentation_result, 'confidence_masks') and segmentation_result.confidence_masks:
                                 if TARGET_CATEGORY_INDEX < len(segmentation_result.confidence_masks):
@@ -143,7 +169,11 @@ with HandLandmarker.create_from_options(hand_options) as landmarker, \
                                     img_batch = np.expand_dims(img_resized_for_model, axis=0)
 
                                     # Make Prediction
+                                    t0 = time.time()
                                     predictions = model.predict(img_batch)
+                                    prediction_time = time.time() - t0
+                                    timings["model_prediction"].append(prediction_time)
+                                    print(f"Model Prediction time: {prediction_time:.4f} seconds")
                                     predicted_class_index = np.argmax(predictions[0])
                                     current_predicted_label = CLASS_LABELS[predicted_class_index]
                                     current_confidence = np.max(predictions[0])
@@ -161,6 +191,10 @@ with HandLandmarker.create_from_options(hand_options) as landmarker, \
             last_predicted_label = current_predicted_label
             last_confidence = current_confidence
             last_hand_cutout_display = current_hand_cutout_display
+            endTime = time.time()
+            print(f"Total loop time: {endTime - totalTime:.4f} seconds")
+            if current_predicted_label not in ("No Hand", "Error"):
+                timings["processed_frame_total"].append(endTime - totalTime)
             # --- END HEAVY PROCESSING ---
         # --- End conditional processing block ---
 
@@ -213,6 +247,8 @@ with HandLandmarker.create_from_options(hand_options) as landmarker, \
         # Show the main frame
         cv2.imshow('Rock Paper Scissors', frame)
 
+        
+
 
         # QUIT
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -222,3 +258,4 @@ with HandLandmarker.create_from_options(hand_options) as landmarker, \
 cap.release()
 cv2.destroyAllWindows()
 print("Application closed.")
+print_timing_summary(timings)

@@ -11,6 +11,10 @@ dist/
 venv/
 *.env
 
-# === ADD THIS LINE ===
 # Machine Learning Models
 *.h5
+
+*.task
+*.tflite
+
+run_rps_game_badDriver.py

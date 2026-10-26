@@ -13,13 +13,33 @@ CLASS_LABELS = ['paper', 'rock', 'scissors']
 # 3. Set the correct IMG_SIZE
 IMG_SIZE = (150, 150)
 
+# --- TIMING SUMMARY ---
+def print_timing_summary(timings):
+    print("\n================ TIMING SUMMARY (ms) ================")
+    for name, values in timings.items():
+        if not values:
+            print(f"{name:<22}: no samples")
+            continue
+        arr = np.array(values) * 1000.0
+        print(f"{name:<22}: median {np.median(arr):7.1f} | mean {arr.mean():7.1f} | "
+              f"min {arr.min():7.1f} | max {arr.max():7.1f} | n={len(arr)}")
+
+# Timing samples (seconds). Model-running loops are only during the countdown.
+timings = {"model_prediction": [], "loop_with_prediction": []}
+
 # --- LOAD THE TRAINED MODEL ---
 print("Loading model...")
 model = tf.keras.models.load_model(MODEL_PATH)
 print("Model loaded successfully.")
 
 # --- INITIALIZE WEBCAM ---
-cap = cv2.VideoCapture(0)
+
+cap = cv2.VideoCapture(0, cv2.CAP_MSMF)  # Use CAP_MSMF for Windows to avoid warnings
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+
 if not cap.isOpened():
     print("Error: Could not open webcam.")
     exit()
@@ -35,9 +55,14 @@ while True:
     ret, frame = cap.read()
     if not ret:
         break
+    totalTime = time.time()  # For performance measurement
     
     # Flip the frame for a mirror-like effect
     frame = cv2.flip(frame, 1)
+    
+    frame = cv2.resize(frame, (640, 480))
+
+    
 
     # 2. DEFINE REGION OF INTEREST (ROI)
     roi_x1, roi_y1 = 100, 100
@@ -62,8 +87,14 @@ while True:
     
 
     # 4. MAKE PREDICTION
+    ran_prediction = False
     if timeLapsed < 3  : # Predict every 3 seconds
+        t0 = time.time()
         predictions = model.predict(img_batch)
+        prediction_time = time.time() - t0
+        timings["model_prediction"].append(prediction_time)
+        ran_prediction = True
+        print(f"Model Prediction time: {prediction_time:.4f} seconds")
         randomPrediction = CLASS_LABELS[np.random.randint(0, len(CLASS_LABELS))]
         print(f"Predictions: {predictions} | Random: {randomPrediction}")
         text = f"Rock Paper Scissor Shoot Time: {3 - timeLapsed:.2f}s"
@@ -95,6 +126,11 @@ while True:
         startTime = time.time()
         randomPrediction = None
         timeLapsed = 0
+
+    endTime = time.time()
+    print(f"Total loop time: {endTime - totalTime:.4f} seconds")
+    if ran_prediction:
+        timings["loop_with_prediction"].append(endTime - totalTime)
     
         
        
@@ -112,3 +148,4 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 print("Application closed.")
+print_timing_summary(timings)
