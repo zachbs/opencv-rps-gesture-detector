@@ -1,5 +1,6 @@
 # Real-Time Rock-Paper-Scissors Gesture Detector
 
+<<<<<<< HEAD
 A real-time hand gesture classifier for Rock, Paper, and Scissors, built with Python, OpenCV, MediaPipe, and TensorFlow/Keras. It reads a webcam feed, labels your gesture live, and plays a round against a random computer move.
 
 | Rock | Paper | Scissors |
